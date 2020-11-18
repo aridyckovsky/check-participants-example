@@ -1,3 +1,5 @@
+/examples/
+
 *.zip
 lambda/*/python/
 .idea
