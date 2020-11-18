@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Check Participants</title>
+  <meta charset="utf-8" />
+
+  <!-- AWS -->
+	<script src="https://sdk.amazonaws.com/js/aws-sdk-2.793.0.min.js"></script>
+
+  <!-- jQuery -->
+  <script
+	  src="https://code.jquery.com/jquery-3.5.1.min.js"
+	  integrity="sha256-9/aliU8dGd2tb6OSsuzixeV4y/faTqgFtohetphbbj0="
+	  crossorigin="anonymous">  	
+	</script>
+
+  <!-- jsPsych -->
+  <script src="jspsych-6.1.0/jspsych.js"></script>
+
+  <!-- jsPsych Plugins -->
+  <script src="jspsych-6.1.0/plugins/jspsych-survey-text.js" type="text/javascript"></script>
+
+  <!-- Load CSS Styles -->
+  <link href="jspsych-6.1.0/css/jspsych.css" rel="stylesheet" type="text/css"></link>
+  <link rel="stylesheet" href="index.css"></link>
+
+  <!-- Load External Functions -->
+  <script type="text/javascript" src="index.js"></script>
+
+</head>
+<body>
+	<div class="main">
+		<p id="prolific-checker"></p>
+		<div id="task" class="flex-container"></div>
+	</div>
+  <!-- Task Script -->
+  <script type="text/javascript">
+
+  	/** Task Settings **/
+
+  	var taskId = "aws-examples-check-participants";
+
+  	/** AWS Configuration **/
+
+  	// Cognito Identity Pool for Previous Participants
+  	var cognitoIdentityPool = "us-east-1:cca44090-1fe4-4d97-bd70-f411351189f4";
+
+  	AWS.config.update({
+			region: "us-east-1",
+		  credentials: new AWS.CognitoIdentityCredentials({
+	      IdentityPoolId: cognitoIdentityPool
+	    })
+		});
+
+		var dynamoDB = new AWS.DynamoDB({apiVersion: '2012-08-10'});
+
+  	/** Timeline Setup **/
+
+  	var check_participant = {
+  		type: "survey-text",
+  		questions: [{
+  			prompt: "Please enter your Prolific ID:",
+  			required: true,
+  			name: "prolificId"
+  		}],
+  		on_finish: function(data) {
+  			var el = document.getElementById("prolific-checker");
+  			el.innerHTML = "Loading...";
+
+  			var id = JSON.parse(data.responses).prolificId;
+
+  			if (!isValidProlificId(id)) {
+  				alert("The ID format used was incorrect.");
+  				location.reload();
+  			}
+
+  			isPreviousParticipant(id, taskId, dynamoDB, function(err, data) {
+  				if (err) {
+  					alert(err);
+  				} else {
+  					var item = data.Item;
+  					if (item) {
+  						var prolificId = item.prolificId.S;
+  						el.innerHTML = `
+		  					Unfortunately, you cannot participate in this study because your
+		  					Prolific ID already exists in our records.
+		  				`;
+  					} else {
+		  				el.innerHTML = `Great! You are eligible to participate in this study.`;
+		  			}
+		  		}
+  			});
+  		}
+  	};
+
+  	var timeline = [
+  		check_participant
+  	];
+
+  	/** Run Task **/
+
+  	jsPsych.init({
+  		timeline: timeline,
+  		display_element: "task",
+  		on_finish: function() {
+  			console.log("Example complete.")
+  		}
+  	});
+
+  </script>
+</body>
+</html>
